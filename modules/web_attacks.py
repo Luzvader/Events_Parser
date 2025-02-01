@@ -40,7 +40,7 @@ PRESETS = {
     'path_traversal': r'(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+',
 
     # SSRF (Server-Side Request Forgery): Detecta intentos de acceso a direcciones internas (ejemplo básico).
-    'ssrf': r'(?i)(http[s]?://(127\.0\.0\.1|localhost))',
+    'ssrf': r'(?i)(http[s]?://(127\.0\.0\.1|localhost)(?::\d+)?(?:/[^\s"]*)?)',
 
     # SharePoint (CVE-2023-29357): Detecta solicitudes sospechosas dirigidas a endpoints de SharePoint,
     # por ejemplo: /_api/web/siteusers o /_api/web/currentuser.
@@ -60,7 +60,16 @@ PRESETS = {
     # RCE (Remote Code Execution): Detecta intentos de ejecución remota de código mediante
     # funciones comunes (system, exec, shell_exec, passthru o popen) seguidas de un paréntesis
     # que puede estar en forma literal o URL encoded (%28).
-    'rce': r'(?i)(?:system|exec|shell_exec|passthru|popen)\s*(?:\(|%28)'
+    'rce': r'(?i)(?:system|exec|shell_exec|passthru|popen)\s*(?:\(|%28)',
+
+    # Ingress-nginx (CVE-2024-7646): Detecta bypass de validación de anotaciones en ingress-nginx.
+    # Busca la anotación "nginx.ingress.kubernetes.io/configuration-snippet" que contiene un comando rewrite
+    # malicioso, por ejemplo, que reescriba rutas que comiencen por "/evil/" a "/admin permanent;".
+    'ingress_nginx': r'(?si)"nginx\.ingress\.kubernetes\.io/configuration-snippet"\s*:\s*".*rewrite\s+\^\/evil\/.*permanent;.*"',
+
+    # HTTP/3 Crash (CVE-2024-31079): Detecta solicitudes HTTP/3 que resultan en un código 500,
+    # lo cual puede ser indicativo de un crash en Apache HTTP/3 QUIC.
+    'http3_crash': r'(?i)HTTP\/3".*?\s500\s',
 }
 
 def get_preset(attack_type):
