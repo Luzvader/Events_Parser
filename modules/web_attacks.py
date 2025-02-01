@@ -46,7 +46,15 @@ PRESETS = {
     # IDOR: Insecure Direct Object References. Detecta accesos directos a objetos,
     # por ejemplo, URLs que incluyen rutas o parámetros con identificadores numéricos
     # sospechosos como /user/123 o ?id=456.
-    'idor': r'(?i)(?:/user/\d+|[?&](?:id|uid|user_id|account_id)=\d+)'
+    'idor': r'(?i)(?:/user/\d+|[?&](?:id|uid|user_id|account_id)=\d+)',
+
+    # Open Redirect: Detecta parámetros de redirección en URLs, como "redirect", "next" o "url",
+    # apuntando a cualquier dirección externa.
+    'open_redirect': r'(?i)[?&](redirect|next|url)=https?:\/\/[^\s]+',
+
+    # RCE (Remote Code Execution): Detecta posibles intentos de ejecución remota de código mediante
+    # funciones comunes de PHP o similares.
+    'rce': r'(?i)(system|exec|shell_exec|passthru|popen)\s*\(',
 }
 
 def get_preset(attack_type):
