@@ -36,29 +36,22 @@ def run_user_agents(log_file, output, filter_ip=None):
             print(f"No se encontraron registros para la IP: {filter_ip}")
             sys.exit(0)
     
-    if output:
-        # Crear la carpeta de salida si no existe.
-        if not os.path.exists(output):
-            os.makedirs(output)
-        base_name = os.path.basename(log_file)
-        output_file = os.path.join(output, f"user_agents_{base_name}.txt")
-        try:
-            with open(output_file, "w", encoding="utf-8") as f:
-                for ip, agents in results.items():
-                    f.write(f"IP: {ip}\n")
-                    for agent in agents:
-                        f.write(f"  - {agent}\n")
-                    f.write("\n")
-            print(f"User agents agrupados se han guardado en: {output_file}")
-        except Exception as e:
-            print("Error al escribir el archivo de salida:", e)
-            sys.exit(1)
-    else:
-        for ip, agents in results.items():
-            print(f"IP: {ip}")
-            for agent in agents:
-                print(f"  - {agent}")
-            print()
+    # Siempre se escribe la salida a un archivo, ya que el valor por defecto de 'output' es "output"
+    if not os.path.exists(output):
+        os.makedirs(output)
+    base_name = os.path.basename(log_file)
+    output_file = os.path.join(output, f"user_agents_{base_name}.txt")
+    try:
+        with open(output_file, "w", encoding="utf-8") as f:
+            for ip, agents in results.items():
+                f.write(f"IP: {ip}\n")
+                for agent in agents:
+                    f.write(f"  - {agent}\n")
+                f.write("\n")
+        print(f"User agents agrupados se han guardado en: {output_file}")
+    except Exception as e:
+        print("Error al escribir el archivo de salida:", e)
+        sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -71,26 +64,27 @@ def main():
     parser_htaccess = subparsers.add_parser("htaccess", help="Procesa logs de Apache (htaccess)")
     parser_htaccess.add_argument("log_file", help="Ruta del archivo de log")
     parser_htaccess.add_argument("search_pattern", help="Patrón de búsqueda o preset (ej: xss, sql_injection, etc.)")
-    parser_htaccess.add_argument("output", nargs="?", default="output", help="Carpeta de salida (default: output)")
+    parser_htaccess.add_argument("output", nargs="?", default="output", help="Carpeta de salida (por defecto: output)")
     
     parser_nginx = subparsers.add_parser("nginx", help="Procesa logs de Nginx")
     parser_nginx.add_argument("log_file", help="Ruta del archivo de log")
     parser_nginx.add_argument("search_pattern", help="Patrón de búsqueda o preset (ej: xss, sql_injection, etc.)")
-    parser_nginx.add_argument("output", nargs="?", default="output", help="Carpeta de salida (default: output)")
+    parser_nginx.add_argument("output", nargs="?", default="output", help="Carpeta de salida (por defecto: output)")
     
     parser_iss = subparsers.add_parser("iss", help="Procesa logs de ISS (IIS)")
     parser_iss.add_argument("log_file", help="Ruta del archivo de log")
     parser_iss.add_argument("search_pattern", help="Patrón de búsqueda o preset (ej: xss, sql_injection, etc.)")
-    parser_iss.add_argument("output", nargs="?", default="output", help="Carpeta de salida (default: output)")
+    parser_iss.add_argument("output", nargs="?", default="output", help="Carpeta de salida (por defecto: output)")
     
     # Subcomando para listar los presets de ataques web.
     parser_webattacks = subparsers.add_parser("webattacks", help="Muestra los presets de ataques web actualmente disponibles")
     
-    # Nuevo subcomando para extraer y agrupar user agents por IP, con opción de filtrar por IP.
+    # Nuevo subcomando para extraer y agrupar user agents por IP,
+    # ahora con salida por defecto a un archivo en la carpeta "output".
     parser_useragents = subparsers.add_parser("useragents", help="Extrae y agrupa los user agents por IP del log")
     parser_useragents.add_argument("log_file", help="Ruta del archivo de log")
-    parser_useragents.add_argument("output", nargs="?", default=None,
-                                   help="Carpeta de salida para guardar resultados (opcional; si no se especifica, se imprime por pantalla)")
+    parser_useragents.add_argument("output", nargs="?", default="output",
+                                   help="Carpeta de salida para guardar resultados (por defecto: output)")
     parser_useragents.add_argument("--ip", dest="filter_ip", help="Filtra los resultados para una IP específica", default=None)
     
     args = parser.parse_args()
