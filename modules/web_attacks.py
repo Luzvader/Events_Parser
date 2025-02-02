@@ -203,7 +203,7 @@ PRESETS = {
             "en entornos críticos y utiliza herramientas de detección de webshells para identificar y bloquear accesos no autorizados."
         )
     },
-
+    
 
 }
 
