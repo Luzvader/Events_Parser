@@ -47,7 +47,7 @@ PRESETS = {
     # Command Injection: Detecta intentos de inyección de comandos utilizando operadores (literal o URL encoded)
     # seguidos de comandos peligrosos.
     "command_injection": {
-        "regex": r"(?i)(?:(?:;|%3[Bb])|(?:&&|%26%26)|(?:\|\||%7C%7C))\s*(?:cat|chmod|chown|wget|curl)\b",
+        "regex": r"(?i)(?:(?:;|%3[Bb])|(?:&&|%26%26)|(?:\|\||%7C%7C))(?:\s|(?:%20))*(?:cat|chmod|chown|wget|curl)\b",
         "level": 0,
         "description": "Detecta intentos de inyección de comandos a través de operadores seguidos de comandos como cat, wget, etc.",
         "remediation": "Sanitiza y valida las entradas de usuario y evita ejecutar comandos del sistema con datos sin filtrar."
