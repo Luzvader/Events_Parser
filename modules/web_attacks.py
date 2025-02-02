@@ -7,18 +7,32 @@ PRESETS = {
         "description": "Detecta intentos de inyección de código JavaScript a través de etiquetas <script>.",
         "remediation": "Sanitiza las entradas de usuario y utiliza políticas de seguridad de contenido (CSP) robustas."
     },
-    "sql_injection": {
+        "sql_injection": {
         "regex": (
             r"(?i)(\bUNION\b(?:\s+|%20)+\bSELECT\b|"
             r"\bSELECT\b(?:\s+|%20)+.*\bFROM\b|"
             r"\bINSERT\b(?:\s+|%20)+INTO\b|"
             r"\bUPDATE\b(?:\s+|%20)+\bSET\b|"
             r"\bDELETE\b(?:\s+|%20)+\bFROM\b|"
-            r"\bDROP\b(?:\s+|%20)+\bTABLE\b)"
+            r"\bDROP\b(?:\s+|%20)+\bTABLE\b|"
+            r"SLEEP\s*\(|WAITFOR\s+DELAY|BENCHMARK\s*\()"
         ),
         "level": 0,
-        "description": "Detecta patrones comunes de inyección SQL, permitiendo separadores literales o URL encoded (%20).",
-        "remediation": "Utiliza consultas parametrizadas y sanitiza las entradas de usuario para prevenir la inyección SQL."
+        "description": "Detecta patrones comunes de inyección SQL, incluyendo técnicas time-based (por ejemplo, SLEEP, WAITFOR DELAY, BENCHMARK) y permitiendo separadores literales o URL encoded (%20).",
+        "remediation": "Utiliza consultas parametrizadas y sanitiza las entradas de usuario para prevenir la inyección SQL. Además, monitorea las solicitudes inusuales que puedan inducir retrasos en la base de datos."
+    },
+        "sqli_extended": {
+        "regex": r"(?i)(?:\w+\.php)\?id=\d+(?:(?:\s*-\s*\d+)|(?:\s+OR\s+\d+(?:\s*-\s*\d+)?\s*=\s*\d+))",
+        "level": 0,
+        "description": (
+            "Detecta intentos de inyección SQL en URLs que invocan archivos PHP con el parámetro 'id'. "
+            "Captura ejemplos donde se utilizan operaciones aritméticas (por ejemplo, '7-1') o cláusulas 'OR' "
+            "típicas en SQLi, como 'id=6 OR 1=1' o 'id=6 OR 11-5=6'."
+        ),
+        "remediation": (
+            "Valida y sanitiza los parámetros de entrada, asegurándote de que 'id' contenga únicamente valores numéricos. "
+            "Utiliza consultas parametrizadas para evitar la inyección SQL."
+        )
     },
     "lfi": {
         "regex": r"(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+",
