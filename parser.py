@@ -5,6 +5,22 @@ import argparse
 import importlib
 import subprocess
 import re
+import urllib.parse
+
+def normalize_line(line):
+    """
+    Normaliza una línea de log:
+      - Decodifica secuencias URL encoded.
+      - Convierte secuencias Unicode (por ejemplo, \u003C) a sus caracteres literales.
+    """
+    # Decodificar URL encoded
+    normalized = urllib.parse.unquote(line)
+    # Intentar decodificar secuencias Unicode
+    try:
+        normalized = normalized.encode("utf-8").decode("unicode_escape")
+    except Exception:
+        pass
+    return normalized
 
 def list_web_attack_presets():
     """Lista los presets disponibles en el módulo web_attacks con su documentación."""
@@ -15,10 +31,10 @@ def list_web_attack_presets():
             print("Presets de ataques web disponibles:")
             for name, data in presets.items():
                 print(f"  - {name}:")
-                print(f"      Regex: {data.get('regex','')}")
-                print(f"      Nivel: {data.get('level','')}")
-                print(f"      Descripción: {data.get('description','')}")
-                print(f"      Remediación: {data.get('remediation','')}")
+                print(f"      Regex: {data.get('regex', '')}")
+                print(f"      Nivel: {data.get('level', '')}")
+                print(f"      Descripción: {data.get('description', '')}")
+                print(f"      Remediación: {data.get('remediation', '')}")
         else:
             print("No se han definido presets de ataques web.")
     except ImportError:
@@ -90,6 +106,8 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
         print("Error procesando el log:", e)
         sys.exit(1)
     
+    # Normalizar líneas y filtrar por IP, si es necesario
+    resultados = [normalize_line(line) for line in resultados]
     if ip_filter:
         resultados = [line for line in resultados if line.split()[0] == ip_filter]
 
@@ -99,7 +117,7 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
     base_name = os.path.basename(log_file)
     output_file_path = os.path.join(output, f"parsed_{base_name}")
     try:
-        with open(output_file_path, 'w', encoding='utf-8') as f_out:
+        with open(output_file_path, "w", encoding="utf-8") as f_out:
             f_out.writelines(resultados)
         print(f"Se han guardado {len(resultados)} línea(s) en: {output_file_path}")
     except Exception as e:
@@ -109,11 +127,10 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
 def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
     """
     Realiza un análisis integral ("botón gordo") de ataques web.
-    
-    Si se especifica --pattern, se analiza únicamente ese preset específico;
+
+    Si se especifica --pattern, se analiza únicamente ese preset;
     de lo contrario, se analizan todos los presets cuyo nivel sea <= level.
-    
-    Además, si se activa --explained, se añade documentación (descripción y recomendaciones)
+    Si se activa --explained, se añade documentación (descripción y recomendaciones)
     en el informe.
     """
     try:
@@ -123,13 +140,15 @@ def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
         print("Error: No se pudo importar el módulo web_attacks.")
         sys.exit(1)
     
-    # Leer el log completo
+    # Leer el log completo y normalizar las líneas
     try:
         with open(log_file, "r", encoding="utf-8") as f:
             log_lines = f.readlines()
     except Exception as e:
         print("Error leyendo el log:", e)
         sys.exit(1)
+    
+    log_lines = [normalize_line(line) for line in log_lines]
     
     selected_presets = {}
     if pattern:
@@ -193,14 +212,14 @@ def main():
         description="Events_Parser: Herramienta de análisis de logs.\n\n"
                     "Sintaxis:\n"
                     "  python3 parser.py --app <APP> <subcommand> <ruta.log> <output> [--pattern <ataque|regex>]\n"
-                    "                                  [--ip <IP>] [--level <0-3>] [--explained]\n\n"
-                    "Donde <APP> puede ser: apache, nginx, iss o tomcat; y <subcommand> es uno de: logs, useragents, webattacks.",
+                    "                                    [--ip <IP>] [--level <0-3>] [--explained]\n\n"
+                    "Donde <APP> puede ser: apache, nginx, iis o tomcat; y <subcommand> es uno de: logs, useragents, webattacks.",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    parser.add_argument("--app", choices=["apache", "nginx", "iss", "tomcat"],
+    parser.add_argument("--app", choices=["apache", "nginx", "iis", "tomcat"],
                         required=False, default=None,
-                        help="Aplicación/servidor: apache, nginx, iss o tomcat (Requerido para 'logs', 'useragents' y 'webattacks')")
+                        help="Aplicación/servidor: apache, nginx, iis o tomcat (Requerido para 'logs', 'useragents' y 'webattacks')")
     
     parser.add_argument("subcommand", choices=["logs", "useragents", "webattacks"],
                         help="Acción a realizar: logs / useragents / webattacks")
@@ -246,7 +265,7 @@ def main():
             parser.print_help()
             sys.exit(1)
         if not args.app:
-            print("Error: Debes especificar --app <apache|nginx|iss|tomcat> para 'logs'.")
+            print("Error: Debes especificar --app <apache|nginx|iis|tomcat> para 'logs'.")
             sys.exit(1)
         run_log_analysis(args.app, args.log_file, args.pattern, args.output, args.ip)
 
