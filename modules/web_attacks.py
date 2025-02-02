@@ -181,7 +181,28 @@ PRESETS = {
             "de seguridad correspondientes para mitigar vulnerabilidades conocidas."
         )
     },
-
+        "webshell": {
+        "regex": (
+            r"(?i)(?:(?:eval|assert|system|exec|passthru|shell_exec|popen|proc_open|pcntl_exec|"
+            r"base64_decode|gzuncompress|gzinflate|str_rot13|gzdecode|file_get_contents|"
+            r"curl_exec|preg_replace|create_function|call_user_func|call_user_func_array|"
+            r"assert_options|mb_ereg_replace|mb_eregi_replace|mb_regex_replace)\s*\(|"
+            r"\$\w+\s*=\s*(?:eval|assert|system|exec|passthru|shell_exec|popen|proc_open|pcntl_exec|"
+            r"base64_decode|gzuncompress|gzinflate|str_rot13|gzdecode|file_get_contents|"
+            r"curl_exec|preg_replace|create_function|call_user_func|call_user_func_array|"
+            r"assert_options|mb_ereg_replace|mb_eregi_replace|mb_regex_replace)\s*\()"
+        ),
+        "level": 0,
+        "description": (
+            "Detecta intentos de ejecución de webshells incluso ofuscadas, buscando patrones que combinan funciones "
+            "de evaluación de código (como eval, assert, system, exec, passthru, shell_exec) y decodificación base64, "
+            "o asignaciones sospechosas en variables superglobales."
+        ),
+        "remediation": (
+            "Revisa y valida las entradas de usuario, desactiva o restringe el uso de funciones de evaluación de código "
+            "en entornos críticos y utiliza herramientas de detección de webshells para identificar y bloquear accesos no autorizados."
+        )
+    },
 
 
 }
