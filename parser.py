@@ -4,16 +4,21 @@ import sys
 import argparse
 import importlib
 import subprocess
+import re
 
 def list_web_attack_presets():
-    """Lista los presets disponibles en el módulo web_attacks."""
+    """Lista los presets disponibles en el módulo web_attacks con su documentación."""
     try:
         web_attacks = importlib.import_module("modules.web_attacks")
         presets = getattr(web_attacks, "PRESETS", {})
         if presets:
             print("Presets de ataques web disponibles:")
-            for preset, regex in presets.items():
-                print(f"  - {preset}: {regex}")
+            for name, data in presets.items():
+                print(f"  - {name}:")
+                print(f"      Regex: {data.get('regex','')}")
+                print(f"      Nivel: {data.get('level','')}")
+                print(f"      Descripción: {data.get('description','')}")
+                print(f"      Remediación: {data.get('remediation','')}")
         else:
             print("No se han definido presets de ataques web.")
     except ImportError:
@@ -21,16 +26,15 @@ def list_web_attack_presets():
     sys.exit(0)
 
 def run_user_agents(log_file, output, filter_ip=None):
-    """Extrae y agrupa los user agents por IP; guarda el resultado en un archivo."""
+    """Extrae y agrupa los user agents por IP y guarda el resultado en un archivo."""
     try:
         user_agents_module = importlib.import_module("modules.user_agents")
     except ImportError:
-        print("Error: El módulo 'modules.user_agents' no está instalado o no se pudo importar.")
+        print("Error: El módulo 'modules.user_agents' no se encontró.")
         sys.exit(1)
     
     results = user_agents_module.extract_user_agents(log_file)
     
-    # Si se especifica una IP, se filtra el diccionario.
     if filter_ip:
         if filter_ip in results:
             results = {filter_ip: results[filter_ip]}
@@ -50,64 +54,44 @@ def run_user_agents(log_file, output, filter_ip=None):
                 for agent in agents:
                     f.write(f"  - {agent}\n")
                 f.write("\n")
-        print(f"User agents agrupados se han guardado en: {output_file}")
+        print(f"User agents guardados en: {output_file}")
     except Exception as e:
-        print("Error al escribir el archivo de salida:", e)
+        print("Error al escribir la salida:", e)
         sys.exit(1)
 
 def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
     """
-    Carga el módulo correspondiente a 'app' (apache, nginx, iss, tomcat) y procesa
-    el log aplicando el patrón (preset o regex). Opcionalmente filtra las líneas por IP.
+    Procesa el log utilizando el módulo correspondiente a 'app' y un patrón (preset o regex).
+    Opcionalmente, filtra las líneas por IP.
     """
-    # Si no se proporcionó patrón, se usa '.*' para procesar todas las líneas.
     if not pattern:
         pattern = ".*"
-    
-    # Intentar cargar presets (si el patrón coincide con uno definido en web_attacks)
     try:
         web_attacks = importlib.import_module("modules.web_attacks")
         presets = getattr(web_attacks, "PRESETS", {})
         key = pattern.lower()
         if key in presets:
-            print(f"Usando preset '{pattern}' con regex: {presets[key]}")
-            pattern = presets[key]
+            print(f"Usando preset '{pattern}' con regex: {presets[key]['regex']}")
+            pattern = presets[key]['regex']
     except ImportError:
         pass
 
-    # Cargar el módulo de la aplicación indicada
     module_name = f"modules.{app}_parser"
     try:
         log_module = importlib.import_module(module_name)
     except ImportError as e:
         missing_module = str(e).split("No module named ")[-1].strip("'")
-        print(f"Error: El módulo requerido '{missing_module}' para '{app}' no está instalado.")
-        respuesta = input(f"¿Desea instalar el paquete '{missing_module}'? [S/n]: ").strip().lower()
-        if respuesta in ['', 's', 'si']:
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", missing_module])
-                print(f"Paquete '{missing_module}' instalado. Reiniciando la carga del módulo...")
-                log_module = importlib.import_module(module_name)
-            except subprocess.CalledProcessError as pip_error:
-                print(f"Error al instalar '{missing_module}': {pip_error}")
-                sys.exit(1)
-        else:
-            print("Abortando ejecución.")
-            sys.exit(1)
+        print(f"Error: El módulo '{missing_module}' para '{app}' no se encontró.")
+        sys.exit(1)
     
     try:
         resultados = log_module.parse_log(log_file, pattern)
     except Exception as e:
-        print("Error al procesar el log:", e)
+        print("Error procesando el log:", e)
         sys.exit(1)
     
-    # Filtrado opcional por IP: se asume que la IP es el primer token de cada línea.
     if ip_filter:
-        filtered_results = []
-        for line in resultados:
-            tokens = line.split()
-            if tokens and tokens[0] == ip_filter:
-                filtered_results.append(line)
+        filtered_results = [line for line in resultados if line.split()[0] == ip_filter]
         resultados = filtered_results
 
     if not os.path.exists(output):
@@ -116,74 +100,155 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
     base_name = os.path.basename(log_file)
     output_file_path = os.path.join(output, f"parsed_{base_name}")
     try:
-        with open(output_file_path, 'w', encoding='utf-8') as f_out:
+        with open(output_file_path, "w", encoding="utf-8") as f_out:
             f_out.writelines(resultados)
         print(f"Se han guardado {len(resultados)} línea(s) en: {output_file_path}")
     except Exception as e:
-        print("Error al escribir el archivo de salida:", e)
+        print("Error al escribir la salida:", e)
+        sys.exit(1)
+
+def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
+    """
+    Módulo "botón gordo" para análisis integral de ataques web.
+    
+    Si se especifica --pattern, se analiza solo ese ataque (preset) específico.
+    Si se omite --pattern, se aplican todos los presets cuyo 'level' sea <= level.
+    Opcionalmente se filtra por IP y, si se activa --explained, se incluye documentación adicional.
+    """
+    try:
+        web_attacks_mod = importlib.import_module("modules.web_attacks")
+        presets = getattr(web_attacks_mod, "PRESETS", {})
+    except ImportError:
+        print("Error: No se pudo importar el módulo web_attacks.")
+        sys.exit(1)
+    
+    # Leer el log completo
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            log_lines = f.readlines()
+    except Exception as e:
+        print("Error leyendo el log:", e)
+        sys.exit(1)
+    
+    selected_presets = {}
+    if pattern:
+        # Si se especifica --pattern, buscar solo ese preset
+        for name, data in presets.items():
+            if name.lower() == pattern.lower():
+                selected_presets[name] = data
+                break
+        if not selected_presets:
+            print(f"No se encontró el preset '{pattern}'.")
+            sys.exit(1)
+    else:
+        # Seleccionar todos los presets con nivel <= level
+        for name, data in presets.items():
+            if data.get("level", 3) <= level:
+                selected_presets[name] = data
+    
+    results = {}
+    for preset, data in selected_presets.items():
+        regex = data.get("regex")
+        try:
+            compiled = re.compile(regex)
+        except re.error as e:
+            print(f"Error compilando la regex para preset '{preset}': {e}")
+            continue
+        matches = [line for line in log_lines if compiled.search(line)]
+        if ip_filter:
+            matches = [line for line in matches if line.split()[0] == ip_filter]
+        if matches:
+            results[preset] = {
+                "matches": matches,
+                "description": data.get("description", "No hay descripción."),
+                "remediation": data.get("remediation", "No hay recomendaciones.")
+            }
+    
+    if not os.path.exists(output):
+        os.makedirs(output)
+    
+    base_name = os.path.basename(log_file)
+    output_file_path = os.path.join(output, f"webattacks_report_{base_name}.txt")
+    
+    try:
+        with open(output_file_path, "w", encoding="utf-8") as f_out:
+            for preset, info in results.items():
+                f_out.write(f"=== {preset.upper()} ===\n")
+                f_out.write(f"Ocurrencias: {len(info['matches'])}\n")
+                if explained:
+                    f_out.write(f"Descripción: {info['description']}\n")
+                    f_out.write(f"Recomendaciones: {info['remediation']}\n")
+                f_out.write("Líneas:\n")
+                for line in info["matches"]:
+                    f_out.write(line)
+                f_out.write("\n\n")
+        print(f"Informe webattacks generado en: {output_file_path}")
+    except Exception as e:
+        print("Error generando el informe:", e)
         sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Events_Parser: Una herramienta de análisis de logs.\n\n"
+        description="Events_Parser: Herramienta de análisis de logs.\n\n"
                     "Sintaxis:\n"
-                    "  python3 parser.py --app <APP> <subcommand> <ruta.log> <output> [--pattern <ataque|regex>] [--ip <IP>]\n\n"
+                    "  python3 parser.py --app <APP> <subcommand> <ruta.log> <output> [--pattern <ataque|regex>]\n"
+                    "                                  [--ip <IP>] [--level <0-3>] [--explained]\n\n"
                     "Donde <APP> puede ser: apache, nginx, iss o tomcat; y <subcommand> es uno de: logs, useragents, webattacks.",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
-    # Argumento global --app (requerido para logs y useragents)
     parser.add_argument("--app", choices=["apache", "nginx", "iss", "tomcat"],
                         required=False, default=None,
-                        help="Aplicación/servidor: apache, nginx, iss o tomcat (Requerido para 'logs' y 'useragents')")
+                        help="Aplicación/servidor: apache, nginx, iss o tomcat (Requerido para 'logs', 'useragents' y 'webattacks')")
     
-    # Subcomando: logs, useragents, webattacks
     parser.add_argument("subcommand", choices=["logs", "useragents", "webattacks"],
                         help="Acción a realizar: logs / useragents / webattacks")
     
-    # Posicionales generales:
-    # Para 'logs' y 'useragents': log_file y output son requeridos.
     parser.add_argument("log_file", nargs="?", default=None,
-                        help="Ruta al archivo de log (requerido para 'logs' y 'useragents')")
+                        help="Ruta al archivo de log (requerido para 'logs', 'useragents' y 'webattacks')")
+    
     parser.add_argument("output", nargs="?", default="output",
                         help="Carpeta de salida (por defecto: output)")
     
-    # Opciones opcionales:
     parser.add_argument("--pattern", "-p", default=None,
-                        help="(Solo para 'logs') Patrón de búsqueda (preset o regex). Si se omite, se procesan todas las líneas.")
+                        help="(Para 'logs' y 'webattacks') Patrón de búsqueda (preset o regex). Si se omite, se analiza todo el log.")
+    
     parser.add_argument("--ip", "-i", default=None,
-                        help="Filtra los resultados para la IP especificada (aplica para 'logs' y 'useragents')")
+                        help="Filtra los resultados para la IP especificada (aplica para 'logs', 'useragents' y 'webattacks')")
+    
+    parser.add_argument("--level", "-l", type=int, choices=range(0, 4), default=3,
+                        help="(Para 'webattacks') Nivel de análisis del 0 al 3. Nivel 0: ataques críticos; Nivel 3: todos (por defecto: 3)")
+    
+    parser.add_argument("--explained", "-e", action="store_true",
+                        help="(Para 'webattacks') Incluye documentación y recomendaciones para cada ataque detectado.")
     
     args = parser.parse_args()
     
-    # Si el subcomando es 'webattacks', ignorar los demás argumentos
-    if args.subcommand == "webattacks":
-        list_web_attack_presets()
-    
-    # Para 'logs' y 'useragents', el archivo de log es obligatorio
-    if args.subcommand in ["logs", "useragents"] and not args.log_file:
+    if not args.subcommand:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
     
-    # Si se usa 'logs' o 'useragents', se requiere --app
-    if args.subcommand in ["logs", "useragents"] and not args.app:
-        print("Error: Debes especificar --app <apache|nginx|iss|tomcat> para 'logs' y 'useragents'.")
-        sys.exit(1)
-    
-    if args.subcommand == "logs":
-        # Para 'logs', se usan:
-        #   - log_file: args.log_file
-        #   - output: args.output
-        #   - pattern: args.pattern (si no se proporciona, se usará '.*')
-        #   - ip_filter: args.ip (si se proporciona)
-        run_log_analysis(args.app, args.log_file, args.pattern, args.output, args.ip)
+    if args.subcommand == "webattacks":
+        if not args.log_file:
+            print("Error: Debes especificar la ruta al log para 'webattacks'.")
+            sys.exit(1)
+        # Si se omite el patrón, se hace un análisis global usando --level
+        run_webattacks(args.app if args.app else "apache", args.log_file, args.output, args.level, args.explained, args.pattern, args.ip)
     
     elif args.subcommand == "useragents":
-        # Para 'useragents', se usan:
-        #   - log_file: args.log_file
-        #   - output: args.output
-        #   - ip_filter: args.ip (si se proporciona)
+        if not args.log_file:
+            parser.print_help()
+            sys.exit(1)
         run_user_agents(args.log_file, args.output, args.ip)
+    
+    elif args.subcommand == "logs":
+        if not args.log_file:
+            parser.print_help()
+            sys.exit(1)
+        if not args.app:
+            print("Error: Debes especificar --app <apache|nginx|iss|tomcat> para 'logs'.")
+            sys.exit(1)
+        run_log_analysis(args.app, args.log_file, args.pattern, args.output, args.ip)
 
 if __name__ == '__main__':
     main()

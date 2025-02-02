@@ -1,84 +1,150 @@
 # modules/web_attacks.py
 
-# Diccionario de presets para detectar ataques web.
-# Las expresiones regulares a continuación son ejemplos básicos y pueden necesitar ajustes según el entorno real.
 PRESETS = {
-    # XSS: Detecta etiquetas <script> (insensible a mayúsculas/minúsculas).
-    'xss': r'(?i)<script\b[^>]*>(.*?)</script>',
-
-    # SQL Injection: Busca patrones comunes de inyección SQL, permitiendo que los separadores sean espacios o "%20".
-    'sql_injection': (
-        r'(?i)(\bUNION\b(?:\s+|%20)+\bSELECT\b|'
-        r'\bSELECT\b(?:\s+|%20)+.*\bFROM\b|'
-        r'\bINSERT\b(?:\s+|%20)+INTO\b|'
-        r'\bUPDATE\b(?:\s+|%20)+\bSET\b|'
-        r'\bDELETE\b(?:\s+|%20)+\bFROM\b|'
-        r'\bDROP\b(?:\s+|%20)+\bTABLE\b)'
-    ),
-
+    # XSS: Detecta intentos de inyección de código JavaScript mediante etiquetas <script>.
+    "xss": {
+        "regex": r"(?i)<script\b[^>]*>(.*?)</script>",
+        "level": 3,
+        "description": "Detecta intentos de inyección de código JavaScript a través de etiquetas <script>.",
+        "remediation": "Sanitiza las entradas de usuario y utiliza políticas de seguridad de contenido (CSP) robustas."
+    },
+    # SQL Injection: Detecta patrones comunes de inyección SQL, permitiendo que los separadores sean espacios o '%20'.
+    "sql_injection": {
+        "regex": (
+            r"(?i)(\bUNION\b(?:\s+|%20)+\bSELECT\b|"
+            r"\bSELECT\b(?:\s+|%20)+.*\bFROM\b|"
+            r"\bINSERT\b(?:\s+|%20)+INTO\b|"
+            r"\bUPDATE\b(?:\s+|%20)+\bSET\b|"
+            r"\bDELETE\b(?:\s+|%20)+\bFROM\b|"
+            r"\bDROP\b(?:\s+|%20)+\bTABLE\b)"
+        ),
+        "level": 0,
+        "description": "Detecta patrones comunes de inyección SQL, permitiendo separadores literales o URL encoded (%20).",
+        "remediation": "Utiliza consultas parametrizadas y sanitiza las entradas de usuario para prevenir la inyección SQL."
+    },
     # LFI (Local File Inclusion): Detecta intentos de inclusión de archivos mediante rutas relativas,
     # ya sea en forma literal ("../") o URL encoded (por ejemplo, ".%2e/" o "%2e%2e/").
-    'lfi': r'(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+',
-
-    # RFI (Remote File Inclusion): Busca patrones que indiquen inclusión remota.
-    'rfi': r'(?i)(http[s]?://.*?\.(php|asp|jsp)(\?.*)?)',
-
-    # CSRF (Cross-Site Request Forgery): Busca menciones a "csrf" o "token".
-    'csrf': r'(?i)(csrf|token)',
-
-    # Command Injection: Detecta un operador (literal o URL encoded) seguido de comandos sospechosos.
-    'command_injection': r'(?i)(?:(?:;|%3[Bb])|(?:&&|%26%26)|(?:\|\||%7C%7C))\s*(?:cat|chmod|chown|wget|curl)\b',
-
-    # XXE (XML External Entity): Detecta definiciones de entidades externas en XML.
-    'xxe': r'(?i)<!ENTITY\s+',
-
-    # XML Injection: Detecta posibles inyecciones en XML.
-    'xml_injection': r'(?i)<\?xml\s+.*\?>',
-
-    # Path Traversal: Detecta intentos de acceder a directorios superiores,
-    # ya sea en forma literal ("../") o URL encoded (por ejemplo, ".%2e/" o "%2f").
-    'path_traversal': r'(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+',
-
-    # SSRF (Server-Side Request Forgery): Detecta intentos de acceso a direcciones internas (ejemplo básico).
-    'ssrf': r'(?i)(http[s]?://(127\.0\.0\.1|localhost)(?::\d+)?(?:/[^\s"]*)?)',
-
-    # SharePoint (CVE-2023-29357): Detecta solicitudes sospechosas dirigidas a endpoints de SharePoint,
-    # por ejemplo: /_api/web/siteusers o /_api/web/currentuser.
-    'sharepoint': r'(?i)/_api/web/(siteusers|currentuser)(/.*)?',
-
-    # Log4j: Detecta intentos de explotación de vulnerabilidades en log4j mediante patrones JNDI,
-    # por ejemplo: ${jndi:ldap://malicious.example.com/a}
-    'log4j': r'(?i)\$\{jndi:(?:ldap|rmi|dns):\/\/[^\}]+\}',
-
-    # IDOR: Detecta accesos directos a objetos, por ejemplo, URLs con /user/123 o parámetros ?id=456.
-    'idor': r'(?i)(?:/user/\d+|[?&](?:id|uid|user_id|account_id)=\d+)',
-
-    # Open Redirect: Detecta parámetros de redirección en URLs, como "redirect", "next" o "url",
-    # apuntando a cualquier dirección externa.
-    'open_redirect': r'(?i)[?&](redirect|next|url)=https?:\/\/[^\s]+',
-
-    # RCE (Remote Code Execution): Detecta intentos de ejecución remota de código mediante
-    # funciones comunes (system, exec, shell_exec, passthru o popen) seguidas de un paréntesis
-    # que puede estar en forma literal o URL encoded (%28).
-    'rce': r'(?i)(?:system|exec|shell_exec|passthru|popen)\s*(?:\(|%28)',
+    "lfi": {
+        "regex": r"(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+",
+        "level": 0,
+        "description": "Detecta intentos de Local File Inclusion (LFI) usando secuencias de '../' o sus variantes URL encoded.",
+        "remediation": "Normaliza y valida las rutas de archivos y restringe el acceso a directorios sensibles."
+    },
+    # RFI (Remote File Inclusion): Detecta intentos de inclusión remota de archivos.
+    "rfi": {
+        "regex": r"(?i)(http[s]?://.*?\.(php|asp|jsp)(\?.*)?)",
+        "level": 2,
+        "description": "Detecta intentos de inclusión remota de archivos (RFI) mediante URL a scripts potencialmente peligrosos.",
+        "remediation": "Valida las URLs de entrada y restringe la inclusión de archivos externos."
+    },
+    # CSRF (Cross-Site Request Forgery): Detecta la presencia de tokens CSRF.
+    "csrf": {
+        "regex": r"(?i)(csrf|token)",
+        "level": 3,
+        "description": "Detecta intentos de CSRF al identificar la presencia de tokens en las solicitudes.",
+        "remediation": "Implementa tokens CSRF únicos y verifica su validez en cada petición."
+    },
+    # Command Injection: Detecta intentos de inyección de comandos utilizando operadores (literal o URL encoded)
+    # seguidos de comandos peligrosos.
+    "command_injection": {
+        "regex": r"(?i)(?:(?:;|%3[Bb])|(?:&&|%26%26)|(?:\|\||%7C%7C))\s*(?:cat|chmod|chown|wget|curl)\b",
+        "level": 0,
+        "description": "Detecta intentos de inyección de comandos a través de operadores seguidos de comandos como cat, wget, etc.",
+        "remediation": "Sanitiza y valida las entradas de usuario y evita ejecutar comandos del sistema con datos sin filtrar."
+    },
+    # XXE (XML External Entity): Detecta intentos de explotación de XML External Entity.
+    "xxe": {
+        "regex": r"(?i)<!ENTITY\s+",
+        "level": 3,
+        "description": "Detecta intentos de explotación de vulnerabilidades XXE mediante definiciones de entidades externas.",
+        "remediation": "Desactiva la resolución de entidades externas en el procesamiento XML o utiliza bibliotecas seguras."
+    },
+    # XML Injection: Detecta posibles intentos de inyección en XML.
+    "xml_injection": {
+        "regex": r"(?i)<\?xml\s+.*\?>",
+        "level": 3,
+        "description": "Detecta intentos de inyección en archivos XML.",
+        "remediation": "Valida y sanitiza los datos XML antes de procesarlos."
+    },
+    # Path Traversal: Detecta intentos de acceder a directorios superiores (path traversal).
+    "path_traversal": {
+        "regex": r"(?i)(?:(?:\.|%2e){2}(?:\/|%2f))+",
+        "level": 0,
+        "description": "Detecta intentos de path traversal mediante el uso de secuencias '../' o sus variantes URL encoded.",
+        "remediation": "Normaliza y valida las rutas de entrada y restringe el acceso a directorios críticos."
+    },
+    # SSRF (Server-Side Request Forgery): Detecta intentos de SSRF a direcciones internas.
+    "ssrf": {
+        "regex": r"(?i)(http[s]?://(127\.0\.0\.1|localhost)(?::\d+)?(?:/[^\s\"]*)?)",
+        "level": 2,
+        "description": "Detecta intentos de SSRF mediante solicitudes a direcciones internas (127.0.0.1 o localhost).",
+        "remediation": "Utiliza listas blancas para URLs y restringe el acceso a servicios internos."
+    },
+    # SharePoint (CVE-2023-29357): Detecta solicitudes a endpoints de SharePoint.
+    "sharepoint": {
+        "regex": r"(?i)/_api/web/(siteusers|currentuser)(/.*)?",
+        "level": 2,
+        "description": "Detecta solicitudes a endpoints de SharePoint asociadas a vulnerabilidades como CVE-2023-29357.",
+        "remediation": "Revisa las configuraciones de seguridad de SharePoint y aplica los parches correspondientes."
+    },
+    # Log4j: Detecta intentos de explotación de vulnerabilidades en Log4j mediante patrones JNDI.
+    "log4j": {
+        "regex": r"(?i)\$\{jndi:(?:ldap|rmi|dns):\/\/[^\}]+\}",
+        "level": 2,
+        "description": "Detecta intentos de explotación de la vulnerabilidad Log4j mediante patrones JNDI.",
+        "remediation": "Actualiza Log4j a una versión segura y revisa las configuraciones de logging."
+    },
+    # IDOR: Detecta accesos directos a objetos a través de URLs o parámetros.
+    "idor": {
+        "regex": r"(?i)(?:/user/\d+|[?&](?:id|uid|user_id|account_id)=\d+)",
+        "level": 1,
+        "description": "Detecta intentos de Insecure Direct Object Reference (IDOR) mediante identificadores en la URL o parámetros.",
+        "remediation": "Implementa controles de acceso robustos y verifica la autorización en cada solicitud."
+    },
+    # Open Redirect: Detecta parámetros que redirigen a URLs externas.
+    "open_redirect": {
+        "regex": r"(?i)[?&](redirect|next|url)=https?:\/\/[^\s]+",
+        "level": 1,
+        "description": "Detecta intentos de redirección abierta mediante parámetros que apuntan a URLs externas.",
+        "remediation": "Valida y restringe los destinos de redirección utilizando listas blancas."
+    },
+    # RCE (Remote Code Execution): Detecta intentos de ejecución remota de código a través de funciones peligrosas.
+    "rce": {
+        "regex": r"(?i)(?:system|exec|shell_exec|passthru|popen)\s*(?:\(|%28)",
+        "level": 0,
+        "description": "Detecta intentos de ejecución remota de código mediante funciones peligrosas.",
+        "remediation": "Evita la ejecución directa de comandos y utiliza métodos seguros para el procesamiento de entradas."
+    },
 
     # Ingress-nginx (CVE-2024-7646): Detecta bypass de validación de anotaciones en ingress-nginx.
-    # Busca la anotación "nginx.ingress.kubernetes.io/configuration-snippet" que contiene un comando rewrite
-    # malicioso, por ejemplo, que reescriba rutas que comiencen por "/evil/" a "/admin permanent;".
-    'ingress_nginx': r'(?si)"nginx\.ingress\.kubernetes\.io/configuration-snippet"\s*:\s*".*rewrite\s+\^\/evil\/.*permanent;.*"',
+    "ingress_nginx": {
+        "regex": r'(?si)"nginx\.ingress\.kubernetes\.io/configuration-snippet"\s*:\s*".*rewrite\s+\^\/evil\/.*permanent;.*"',
+        "level": 2,
+        "description": "Detecta bypass de validación de anotaciones en ingress-nginx. Se analiza la anotación 'nginx.ingress.kubernetes.io/configuration-snippet' en busca de comandos rewrite maliciosos que redirijan a rutas no autorizadas.",
+        "remediation": "Revisa y restringe las anotaciones permitidas en el Ingress, actualiza la configuración de seguridad y aplica parches según corresponda."
+    },
 
-    # HTTP/3 Crash (CVE-2024-31079): Detecta solicitudes HTTP/3 que resultan en un código 500,
-    # lo cual puede ser indicativo de un crash en Apache HTTP/3 QUIC.
-    'http3_crash': r'(?i)HTTP\/3".*?\s500\s',
+    # HTTP/3 Crash (CVE-2024-31079): Detecta solicitudes HTTP/3 que generan un error 500.
+    "http3_crash": {
+        "regex": r'(?i)HTTP\/3".*?\s500\s',
+        "level": 1,
+        "description": "Detecta solicitudes HTTP/3 que resultan en un código 500, lo que puede indicar un crash en Apache HTTP/3 QUIC.",
+        "remediation": "Verifica la versión de Apache HTTP/3, aplica los parches disponibles y revisa la configuración de QUIC para mitigar la vulnerabilidad."
+    }
 }
 
 def get_preset(attack_type):
     """
-    Retorna la expresión regular asociada al preset del ataque web indicado.
-    
-    :param attack_type: Nombre del ataque (ej: 'xss', 'sql_injection', 'sharepoint', 'log4j', 'idor', 'open_redirect', 'rce', etc.)
-    :return: Cadena con la expresión regular correspondiente.
-    :raises Exception: Si no se encuentra el preset para el ataque indicado.
+    Retorna la estructura asociada al preset del ataque web indicado.
+
+    Parámetro:
+      - attack_type (str): Nombre del ataque (ej: 'xss', 'sql_injection', 'lfi', etc.)
+
+    Retorna:
+      - dict: Contiene 'regex', 'level', 'description' y 'remediation' del preset.
+
+    Lanza:
+      - Exception: Si no se encuentra el preset para el ataque indicado.
     """
     key = attack_type.lower()
     if key in PRESETS:
