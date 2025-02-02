@@ -26,7 +26,7 @@ def list_web_attack_presets():
     sys.exit(0)
 
 def run_user_agents(log_file, output, filter_ip=None):
-    """Extrae y agrupa los user agents por IP y guarda el resultado en un archivo."""
+    """Extrae y agrupa los user agents por IP; guarda el resultado en un archivo."""
     try:
         user_agents_module = importlib.import_module("modules.user_agents")
     except ImportError:
@@ -61,8 +61,8 @@ def run_user_agents(log_file, output, filter_ip=None):
 
 def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
     """
-    Procesa el log utilizando el módulo correspondiente a 'app' y un patrón (preset o regex).
-    Opcionalmente, filtra las líneas por IP.
+    Procesa el log usando el módulo correspondiente a 'app' y un patrón (preset o regex).
+    Opcionalmente filtra las líneas por IP.
     """
     if not pattern:
         pattern = ".*"
@@ -91,8 +91,7 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
         sys.exit(1)
     
     if ip_filter:
-        filtered_results = [line for line in resultados if line.split()[0] == ip_filter]
-        resultados = filtered_results
+        resultados = [line for line in resultados if line.split()[0] == ip_filter]
 
     if not os.path.exists(output):
         os.makedirs(output)
@@ -100,7 +99,7 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
     base_name = os.path.basename(log_file)
     output_file_path = os.path.join(output, f"parsed_{base_name}")
     try:
-        with open(output_file_path, "w", encoding="utf-8") as f_out:
+        with open(output_file_path, 'w', encoding='utf-8') as f_out:
             f_out.writelines(resultados)
         print(f"Se han guardado {len(resultados)} línea(s) en: {output_file_path}")
     except Exception as e:
@@ -109,11 +108,13 @@ def run_log_analysis(app, log_file, pattern, output, ip_filter=None):
 
 def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
     """
-    Módulo "botón gordo" para análisis integral de ataques web.
+    Realiza un análisis integral ("botón gordo") de ataques web.
     
-    Si se especifica --pattern, se analiza solo ese ataque (preset) específico.
-    Si se omite --pattern, se aplican todos los presets cuyo 'level' sea <= level.
-    Opcionalmente se filtra por IP y, si se activa --explained, se incluye documentación adicional.
+    Si se especifica --pattern, se analiza únicamente ese preset específico;
+    de lo contrario, se analizan todos los presets cuyo nivel sea <= level.
+    
+    Además, si se activa --explained, se añade documentación (descripción y recomendaciones)
+    en el informe.
     """
     try:
         web_attacks_mod = importlib.import_module("modules.web_attacks")
@@ -132,7 +133,7 @@ def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
     
     selected_presets = {}
     if pattern:
-        # Si se especifica --pattern, buscar solo ese preset
+        # Si se especifica --pattern, buscar ese preset en particular
         for name, data in presets.items():
             if name.lower() == pattern.lower():
                 selected_presets[name] = data
@@ -141,7 +142,7 @@ def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
             print(f"No se encontró el preset '{pattern}'.")
             sys.exit(1)
     else:
-        # Seleccionar todos los presets con nivel <= level
+        # Seleccionar todos los presets con level <= level
         for name, data in presets.items():
             if data.get("level", 3) <= level:
                 selected_presets[name] = data
@@ -160,8 +161,8 @@ def run_webattacks(app, log_file, output, level, explained, pattern, ip_filter):
         if matches:
             results[preset] = {
                 "matches": matches,
-                "description": data.get("description", "No hay descripción."),
-                "remediation": data.get("remediation", "No hay recomendaciones.")
+                "description": data.get("description", "Sin descripción."),
+                "remediation": data.get("remediation", "Sin recomendaciones.")
             }
     
     if not os.path.exists(output):
@@ -211,7 +212,7 @@ def main():
                         help="Carpeta de salida (por defecto: output)")
     
     parser.add_argument("--pattern", "-p", default=None,
-                        help="(Para 'logs' y 'webattacks') Patrón de búsqueda (preset o regex). Si se omite, se analiza todo el log.")
+                        help="(Para 'logs' y 'webattacks') Patrón de búsqueda (preset o regex). Si se omite, se procesa todo el log o se analiza globalmente según --level.")
     
     parser.add_argument("--ip", "-i", default=None,
                         help="Filtra los resultados para la IP especificada (aplica para 'logs', 'useragents' y 'webattacks')")
@@ -220,7 +221,7 @@ def main():
                         help="(Para 'webattacks') Nivel de análisis del 0 al 3. Nivel 0: ataques críticos; Nivel 3: todos (por defecto: 3)")
     
     parser.add_argument("--explained", "-e", action="store_true",
-                        help="(Para 'webattacks') Incluye documentación y recomendaciones para cada ataque detectado.")
+                        help="(Para 'webattacks') Incluye documentación y recomendaciones en el informe.")
     
     args = parser.parse_args()
     
@@ -232,7 +233,6 @@ def main():
         if not args.log_file:
             print("Error: Debes especificar la ruta al log para 'webattacks'.")
             sys.exit(1)
-        # Si se omite el patrón, se hace un análisis global usando --level
         run_webattacks(args.app if args.app else "apache", args.log_file, args.output, args.level, args.explained, args.pattern, args.ip)
     
     elif args.subcommand == "useragents":
