@@ -115,7 +115,6 @@ PRESETS = {
         "description": "Detecta intentos de ejecución remota de código mediante funciones peligrosas.",
         "remediation": "Evita la ejecución directa de comandos y utiliza métodos seguros para el procesamiento de entradas."
     },
-
     # Ingress-nginx (CVE-2024-7646): Detecta bypass de validación de anotaciones en ingress-nginx.
     "ingress_nginx": {
         "regex": r'(?si)"nginx\.ingress\.kubernetes\.io/configuration-snippet"\s*:\s*".*rewrite\s+\^\/evil\/.*permanent;.*"',
@@ -123,14 +122,26 @@ PRESETS = {
         "description": "Detecta bypass de validación de anotaciones en ingress-nginx. Se analiza la anotación 'nginx.ingress.kubernetes.io/configuration-snippet' en busca de comandos rewrite maliciosos que redirijan a rutas no autorizadas.",
         "remediation": "Revisa y restringe las anotaciones permitidas en el Ingress, actualiza la configuración de seguridad y aplica parches según corresponda."
     },
-
     # HTTP/3 Crash (CVE-2024-31079): Detecta solicitudes HTTP/3 que generan un error 500.
     "http3_crash": {
         "regex": r'(?i)HTTP\/3".*?\s500\s',
         "level": 1,
         "description": "Detecta solicitudes HTTP/3 que resultan en un código 500, lo que puede indicar un crash en Apache HTTP/3 QUIC.",
         "remediation": "Verifica la versión de Apache HTTP/3, aplica los parches disponibles y revisa la configuración de QUIC para mitigar la vulnerabilidad."
-    }
+    },
+    "glassfish": {
+    "regex": r"(?i)POST\s+/.*(asadmin|domain-admin).*?(exec|deploy|command)",
+    "level": 0,
+    "description": "Detecta intentos de explotación de GlassFish mediante vulnerabilidad CVE-2011-0807 y RCE. Se basa en solicitudes maliciosas dirigidas a endpoints de la consola de administración, como 'asadmin' o 'domain-admin'.",
+    "remediation": "Actualiza GlassFish a la última versión, restringe el acceso a la consola de administración y refuerza la configuración de seguridad."
+    },
+    "nmap": {
+    "regex": r"(?i)(nmap|nmap\s+scan|nmap\s+scripting\s+engine)",
+    "level": 1,
+    "description": "Detecta indicios de escaneos de red realizados con Nmap, buscando cadenas típicas como 'nmap', 'nmap scan' o 'nmap scripting engine'.",
+    "remediation": "Revisa las solicitudes sospechosas, identifica la fuente del escaneo y considera configurar reglas de firewall o sistemas IDS/IPS para bloquear o alertar sobre escaneos no autorizados."
+    },
+
 }
 
 def get_preset(attack_type):
