@@ -125,8 +125,15 @@ PRESETS = {
     "api_attack": {
         "regex": r"(?i)(/graphql.*__schema|/api/.*\[\$(ne|regex)\])",
         "level": 1,
-        "description": "Detecta intentos de ataques contra APIs, ya sea mediante consultas GraphQL de introspección (indicadas por __schema) o el uso de operadores MongoDB ([$ne] o [$regex]) en parámetros de endpoints de API.",
-        "remediation": "Revisa las configuraciones de tus endpoints de API. Si la introspección de GraphQL no es necesaria, deshabilítala. Además, valida y sanitiza todos los parámetros de entrada, especialmente aquellos que usen operadores especiales."
+        "description": (
+            "Detecta intentos de ataques contra APIs, ya sea mediante consultas GraphQL que "
+            "utilicen introspección (__schema) o a través del uso de operadores de inyección (como "
+            "[$ne] o [$regex]) en endpoints que contengan '/api/'."
+        ),
+        "remediation": (
+            "Revisa la configuración de tus endpoints de API; si la introspección en GraphQL no es necesaria, "
+            "desactívala. Además, valida y sanitiza todos los parámetros de entrada para prevenir inyecciones."
+        )
     },
     "solarwinds": {
         "regex": r"(?i)/SolarWinds/InformationService/v3/Json/Query",
