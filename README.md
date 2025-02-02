@@ -1,6 +1,7 @@
+```markdown
 # Events_Parser
 
-Este proyecto es una herramienta de línea de comandos en Python para parsear y analizar logs de diferentes fuentes (como Apache, Nginx o ISS). La herramienta permite:
+Este proyecto es una herramienta de línea de comandos en Python para parsear y analizar logs de diferentes fuentes (como Apache, Nginx, ISS o Tomcat). La herramienta permite:
 
 - **Detectar patrones de ataques web** mediante presets (por ejemplo: XSS, SQL Injection, LFI, Command Injection, SharePoint, Log4j, IDOR, Open Redirect, RCE, Ingress‑nginx, HTTP/3 Crash, etc.).
 - **Extraer y agrupar los user agents** de los eventos, permitiendo incluso filtrar por una IP específica para detectar si una misma IP utiliza distintos user agents (posible indicio de evasión o manipulación).
@@ -14,101 +15,129 @@ log_parser/
 ├── parser.py
 ├── README.md
 └── modules/
-    ├── __init__.py
-    ├── htaccess_parser.py
-    ├── nginx_parser.py
-    ├── iss_parser.py
-    ├── web_attacks.py
-    └── user_agents.py
+   ├── __init__.py
+   ├── apache_parser.py
+   ├── nginx_parser.py
+   ├── iss_parser.py
+   ├── tomcat_parser.py
+   ├── web_attacks.py
+   └── user_agents.py
 ```
 
-- **parser.py:** Es el programa principal que interpreta los comandos y llama a los módulos correspondientes.
-- **modules/**: Contiene los módulos específicos para cada tipo de log y el submódulo con presets para ataques web, así como el módulo para extraer user agents.
+- **parser.py:** Es el programa principal que interpreta los argumentos y llama a los módulos específicos según la aplicación indicada.  
+- **modules/**: Contiene los módulos específicos para cada tipo de log (Apache, Nginx, ISS, Tomcat), el submódulo con presets para ataques web (`web_attacks.py`) y el módulo para extraer user agents (`user_agents.py`).
 
 ## Requisitos
 
 - Python 3.6 o superior.
 - El proyecto utiliza únicamente librerías estándar, por lo que no es necesario instalar dependencias externas adicionales.
 
-## Uso
+## Uso General
 
-La sintaxis general es:
+La sintaxis general sigue este **nuevo flujo**:
 
 ```bash
-python3 parser.py <comando> <ruta_al_log> [parámetros adicionales] [output]
+python3 parser.py --app <APP> <subcommand> <ruta.log> <argumento_ataque_o_IP> <carpeta_salida>
 ```
 
-### Comandos Disponibles
+donde `<APP>` puede ser:
+- **apache**: para logs de Apache.
+- **nginx**: para logs de Nginx.
+- **iss**: para logs de ISS (IIS).
+- **tomcat**: para logs de Tomcat.
 
-1. **Procesar Logs**
+y `<subcommand>` puede ser:
+- **logs**: Procesa el log indicado aplicando el patrón (ataque, preset, o regex).
+- **useragents**: Extrae y agrupa user agents, con opción de filtrar por IP.
+- **webattacks**: Muestra los presets de ataques web disponibles.
 
-   **htaccess**: Procesa logs de Apache (htaccess).
+### 1. Subcomando `logs`
 
-   Ejemplo:
+- **Comando:**
+  ```bash
+  python3 parser.py --app <APP> logs <ruta.log> <ataque|regex> <output>
+  ```
+  - `--app <APP>`: Selecciona la aplicación (apache, nginx, iss o tomcat).
+  - `logs`: Indica que procesaremos el archivo en busca de un ataque/preset/regex.
+  - `<ruta.log>`: Ruta del archivo de log.
+  - `<ataque|regex>`: Puede ser un **preset** definido en `web_attacks.py` (ej: `xss`, `sql_injection`, `lfi`, etc.) o una expresión regular personalizada.
+  - `<output>`: Carpeta donde se guardarán los resultados (por defecto, `output` si no se especifica).
 
-   ```bash
-   python3 parser.py htaccess access_test_100.log xss output
-   ```
+**Ejemplos:**
+- Procesar un log de **Apache** buscando `sql_injection`:
+  ```bash
+  python3 parser.py --app apache logs access_test_100.log sql_injection output
+  ```
+- Procesar un log de **Tomcat** usando un regex personalizado:
+  ```bash
+  python3 parser.py --app tomcat logs tomcat.log "attack_pattern" myfolder
+  ```
 
-   Este comando analiza el archivo `access_test_100.log` en búsqueda del preset `xss` y guarda los resultados en la carpeta `output`.
+### 2. Subcomando `useragents`
 
-   **nginx**: Procesa logs de Nginx.
+- **Comando:**
+  ```bash
+  python3 parser.py --app <APP> useragents <ruta.log> <IP|none> <output>
+  ```
+  - `--app <APP>`: Selecciona la aplicación, aunque en la práctica el módulo `useragents` es independiente del tipo de app.  
+  - `useragents`: Extrae y agrupa user agents por IP.
+  - `<ruta.log>`: Ruta del archivo de log.
+  - `<IP|none>`: IP concreta para filtrar. Si no deseas filtrar, usa `none`.
+  - `<output>`: Carpeta donde se guardarán los resultados (por defecto `output` si no se especifica).
 
-   Ejemplo:
+**Ejemplos:**
+- Extraer **todos los user agents** de un log:
+  ```bash
+  python3 parser.py --app apache useragents access_test_100.log none output
+  ```
+- Extraer **solo user agents de la IP** `203.0.113.1`:
+  ```bash
+  python3 parser.py --app nginx useragents access_test_100.log 203.0.113.1 my_results
+  ```
 
-   ```bash
-   python3 parser.py nginx access_test_100.log sql_injection output
-   ```
+### 3. Subcomando `webattacks`
 
-   **iss**: Procesa logs de ISS (IIS).
+- **Comando:**
+  ```bash
+  python3 parser.py webattacks
+  ```
+  - Muestra la lista de presets actualmente definidos (no requiere `--app`, ni más argumentos).
 
-   Ejemplo:
-
-   ```bash
-   python3 parser.py iss access_test_100.log sharepoint output
-   ```
-
-   Nota: En estos comandos, el parámetro `<search_pattern>` puede ser un preset definido en el submódulo `web_attacks.py` (por ejemplo: xss, sql_injection, lfi, command_injection, sharepoint, log4j, idor, open_redirect, rce, ingress_nginx, http3_crash, etc.).
-
-2. **Listar Presets de Ataques Web**
-
-   El comando `webattacks` muestra los presets actualmente definidos para detectar ataques web.
-
-   Ejemplo:
-
-   ```bash
-   python3 parser.py webattacks
-   ```
-
-3. **Extraer y Agrupar User Agents**
-
-   El comando `useragents` extrae y agrupa los user agents de cada IP del log. Además, puedes filtrar los resultados para una IP específica usando el argumento `--ip`.
-
-   Para extraer y agrupar todos los user agents:
-
-   ```bash
-   python3 parser.py useragents access_test_100.log output
-   ```
-
-   Para filtrar por una IP en concreto (por ejemplo, 203.0.113.1):
-
-   ```bash
-   python3 parser.py useragents access_test_100.log output --ip 203.0.113.1
-   ```
+**Ejemplo:**
+```bash
+python3 parser.py webattacks
+```
 
 ## Ejemplo de Log de Prueba
 
 Un ejemplo de log de prueba (`access_test_100.log`) se ha creado para simular un entorno real. Este archivo contiene 100 líneas con entradas normales y varias simulaciones de ataques web (XSS, SQL Injection, LFI, Command Injection, SharePoint, Log4j, IDOR, Open Redirect, RCE, Ingress‑nginx, HTTP/3 Crash, SSRF, etc.) y varía los user agents para mostrar casos donde una IP pueda usar distintos user agents.
 
-Puedes utilizar este archivo para probar las funcionalidades del parser.
+Puedes utilizar este archivo para probar las funcionalidades del parser y ver cómo se agrupan los user agents o se detectan ataques mediante los presets.
 
-## Cómo Ejecutar
+## Ejecución y Casos de Uso
 
-1. Abre una terminal y navega hasta el directorio raíz del proyecto (donde se encuentra `parser.py`).
-2. Ejecuta cualquiera de los comandos anteriores según lo que desees probar.
+1. **Listar presets disponibles** (no usa `--app`):
+   ```bash
+   python3 parser.py webattacks
+   ```
+2. **Procesar logs** (ej: Apache) para detectar LFI:
+   ```bash
+   python3 parser.py --app apache logs access_test_100.log lfi output
+   ```
+3. **Extraer user agents** (sin filtrar) de un log de ISS:
+   ```bash
+   python3 parser.py --app iss useragents access_test_100.log none output
+   ```
+4. **Extraer user agents** (filtrando una IP en Tomcat):
+   ```bash
+   python3 parser.py --app tomcat useragents tomcat.log 192.168.1.10 output
+   ```
 
 ## Licencia
 
-Este proyecto se distribuye bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
+Este proyecto se distribuye bajo la **Licencia MIT**. Consulta el archivo `LICENSE` para más detalles.
 
-¡Disfruta utilizando el Log Parser Tool y ajusta los presets o módulos según tus necesidades!
+---
+
+¡Disfruta utilizando **Events_Parser** y ajusta los presets o módulos según tus necesidades!
+```
