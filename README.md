@@ -1,4 +1,4 @@
-```markdown
+
 # Events_Parser
 
 Events_Parser es una herramienta de línea de comandos en Python para parsear y analizar logs de diferentes fuentes, como Apache, Nginx, IIS y Tomcat. La herramienta permite:
