@@ -134,6 +134,3 @@ Puedes utilizar este archivo para probar las funcionalidades del parser, tanto e
 Este proyecto se distribuye bajo la **Licencia MIT**. Consulta el archivo `LICENSE` para más detalles.
 
 ---
-
-¡Disfruta utilizando **Events_Parser** y ajusta los presets o módulos según tus necesidades!
-```
